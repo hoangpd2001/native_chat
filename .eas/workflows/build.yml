@@ -1,0 +1,19 @@
+# EAS Workflows: push to main → trigger preview build (Android)
+# Reference: https://docs.expo.dev/eas-workflows/get-started/
+#
+# Secrets (API_BASE_URL etc.) は expo.dev → Project → Secrets で管理。
+# 自動的に build environment に注入される。
+
+name: Preview build on push
+
+on:
+  push:
+    branches: ["main"]
+
+jobs:
+  build_android:
+    name: Build Android (preview)
+    type: build
+    params:
+      platform: android
+      profile: preview

@@ -1,3 +1,5 @@
+const { colors: t } = require("./lib/theme");
+
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   content: [
@@ -8,18 +10,20 @@ module.exports = {
   presets: [require("nativewind/preset")],
   theme: {
     extend: {
+      // theme.js のキー (camelCase) を Tailwind class 名 (kebab-case + foreground 接頭) に変換
       colors: {
-        background: "#0b0f1a",
-        foreground: "#f0f1f4",
-        card: "#161b27",
-        "card-foreground": "#f0f1f4",
-        primary: "#4d8cff",
-        "primary-foreground": "#f7f8fa",
-        muted: "#1f242f",
-        "muted-foreground": "#7d8390",
-        border: "rgba(255,255,255,0.08)",
-        destructive: "#e84545",
-        "destructive-foreground": "#ffffff",
+        background: t.background,
+        foreground: t.foreground,
+        card: t.card,
+        "card-foreground": t.cardForeground,
+        primary: t.primary,
+        "primary-foreground": t.primaryForeground,
+        muted: t.muted,
+        "muted-foreground": t.mutedForeground,
+        destructive: t.destructive,
+        "destructive-foreground": t.destructiveForeground,
+        success: t.success,
+        border: t.border,
       },
     },
   },

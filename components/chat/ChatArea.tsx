@@ -2,6 +2,7 @@ import { Mic } from "lucide-react-native";
 import { useRef } from "react";
 import { ScrollView, Text, View } from "react-native";
 import type { AnswerEntry } from "@/hooks/use-answer-stream";
+import { colors } from "@/lib/theme";
 import { MessageBubble } from "./MessageBubble";
 
 export type ChatMessage =
@@ -27,7 +28,7 @@ function EmptyState() {
       <View className="relative h-24 w-24 items-center justify-center">
         <View className="absolute h-24 w-24 rounded-full border border-primary/10" />
         <View className="absolute h-16 w-16 rounded-full border border-primary/20" />
-        <Mic size={32} color="#4d8cff" opacity={0.4} />
+        <Mic size={32} color={colors.primary} opacity={0.4} />
       </View>
       <Text className="text-sm font-medium text-muted-foreground">準備完了</Text>
     </View>

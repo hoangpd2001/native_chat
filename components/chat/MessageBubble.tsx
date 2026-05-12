@@ -2,6 +2,7 @@ import { AlertCircle, Check, Copy } from "lucide-react-native";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Animated, Pressable, Text, View } from "react-native";
 import type { AnswerEntry } from "@/hooks/use-answer-stream";
+import { colors } from "@/lib/theme";
 
 type MessageBubbleProps =
   | {
@@ -88,7 +89,11 @@ export function MessageBubble(props: MessageBubbleProps) {
               accessibilityLabel="質問と全解答をコピー"
               className="h-7 w-7 items-center justify-center rounded-md"
             >
-              {copied ? <Check size={14} color="#4d8cff" /> : <Copy size={14} color="#7d8390" />}
+              {copied ? (
+                <Check size={14} color={colors.primary} />
+              ) : (
+                <Copy size={14} color={colors.mutedForeground} />
+              )}
             </Pressable>
           )}
         </View>
@@ -134,7 +139,7 @@ export function MessageBubble(props: MessageBubbleProps) {
     <View className="max-w-[90%] self-end rounded-2xl rounded-br-sm border border-destructive/30 bg-destructive/10 px-4 py-3">
       {entry.text ? <Text className="mb-2 text-base text-foreground/70">{entry.text}</Text> : null}
       <View className="flex-row items-center">
-        <AlertCircle size={16} color="#e84545" />
+        <AlertCircle size={16} color={colors.destructive} />
         <Text className="ml-2 text-sm text-destructive">{entry.error}</Text>
       </View>
     </View>

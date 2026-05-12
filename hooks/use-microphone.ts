@@ -1,11 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { PermissionsAndroid, Platform } from "react-native";
-import {
-  PERMISSIONS,
-  request as requestPermission,
-  RESULTS,
-} from "react-native-permissions";
-import { mediaDevices, type MediaStream } from "react-native-webrtc";
+import { PERMISSIONS, RESULTS, request as requestPermission } from "react-native-permissions";
+import { type MediaStream, mediaDevices } from "react-native-webrtc";
 
 type MicrophoneState = "idle" | "requesting" | "granted" | "denied" | "unsupported" | "error";
 
@@ -30,15 +26,12 @@ interface UseMicrophoneReturn {
  */
 async function requestMicPermission(): Promise<"granted" | "denied" | "blocked" | "unavailable"> {
   if (Platform.OS === "android") {
-    const result = await PermissionsAndroid.request(
-      PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
-      {
-        title: "マイクの使用許可",
-        message: "面接音声をリアルタイムで文字起こしするためにマイクを使用します。",
-        buttonPositive: "OK",
-        buttonNegative: "キャンセル",
-      }
-    );
+    const result = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.RECORD_AUDIO, {
+      title: "マイクの使用許可",
+      message: "面接音声をリアルタイムで文字起こしするためにマイクを使用します。",
+      buttonPositive: "OK",
+      buttonNegative: "キャンセル",
+    });
     if (result === PermissionsAndroid.RESULTS.GRANTED) return "granted";
     if (result === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN) return "blocked";
     return "denied";

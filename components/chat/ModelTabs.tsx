@@ -1,7 +1,8 @@
-import { ActivityIndicator, Pressable, Text, View } from "react-native";
 import { AlertCircle, Check } from "lucide-react-native";
+import { ActivityIndicator, Pressable, Text, View } from "react-native";
 import type { AnswerStatus } from "@/hooks/use-answer-stream";
 import { MODEL_KEYS, type ModelKey } from "@/lib/llm/types";
+import { colors } from "@/lib/theme";
 
 type ModelTabsProps = {
   value: ModelKey;
@@ -18,12 +19,12 @@ const MODELS: readonly ModelKey[] = MODEL_KEYS;
 function StatusIcon({ status }: { status: AnswerStatus | "idle" }) {
   if (status === "idle") return null;
   if (status === "loading" || status === "streaming") {
-    return <ActivityIndicator size="small" color="#4d8cff" />;
+    return <ActivityIndicator size="small" color={colors.primary} />;
   }
   if (status === "done") {
-    return <Check size={14} color="#22c55e" />;
+    return <Check size={14} color={colors.success} />;
   }
-  return <AlertCircle size={14} color="#e84545" />;
+  return <AlertCircle size={14} color={colors.destructive} />;
 }
 
 /**

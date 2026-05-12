@@ -12,6 +12,7 @@ import { useMicrophone } from "@/hooks/use-microphone";
 import { useRealtimeTranscription } from "@/hooks/use-realtime-transcription";
 import { MODEL_KEYS, type ModelKey } from "@/lib/llm/types";
 import type { RealtimeConnectionState } from "@/lib/realtime/types";
+import { colors } from "@/lib/theme";
 
 export default function App() {
   const activeModel: ModelKey = "openai";
@@ -103,9 +104,9 @@ export default function App() {
                   className="h-14 w-14 items-center justify-center rounded-full bg-primary active:opacity-80"
                 >
                   {mic.state === "requesting" ? (
-                    <ActivityIndicator size="small" color="#f7f8fa" />
+                    <ActivityIndicator size="small" color={colors.primaryForeground} />
                   ) : (
-                    <Mic size={24} color="#f7f8fa" />
+                    <Mic size={24} color={colors.primaryForeground} />
                   )}
                 </Pressable>
               ) : mic.state === "granted" ? (
@@ -118,14 +119,14 @@ export default function App() {
                       : "h-14 w-14 items-center justify-center rounded-full bg-primary active:opacity-80"
                   }
                 >
-                  <MicOff size={24} color="#ffffff" />
+                  <MicOff size={24} color={colors.destructiveForeground} />
                 </Pressable>
               ) : (
                 <Pressable
                   onPress={mic.start}
                   className="min-h-[48px] min-w-[200px] flex-row items-center justify-center rounded-md border border-border bg-card px-4 active:opacity-80"
                 >
-                  <Mic size={20} color="#f0f1f4" />
+                  <Mic size={20} color={colors.foreground} />
                   <Text className="ml-2 text-base text-foreground">もう一度試す</Text>
                 </Pressable>
               )}
@@ -138,7 +139,7 @@ export default function App() {
                   accessibilityLabel="マイクを停止"
                   className="h-11 w-11 items-center justify-center rounded-md active:opacity-60"
                 >
-                  <Square size={16} color="#f0f1f4" />
+                  <Square size={16} color={colors.foreground} />
                 </Pressable>
               ) : null}
             </View>
@@ -160,14 +161,14 @@ function ConnectionBadge({ state, muted }: ConnectionBadgeProps) {
     if (muted) {
       return (
         <View className="flex-row items-center gap-1">
-          <MicOff size={12} color="#7d8390" />
+          <MicOff size={12} color={colors.mutedForeground} />
           <Text className="text-xs text-muted-foreground">ミュート中</Text>
         </View>
       );
     }
     return (
       <View className="flex-row items-center gap-1">
-        <Radio size={12} color="#4d8cff" />
+        <Radio size={12} color={colors.primary} />
         <Text className="text-xs text-muted-foreground">接続中</Text>
       </View>
     );
@@ -175,7 +176,7 @@ function ConnectionBadge({ state, muted }: ConnectionBadgeProps) {
   if (state === "connecting") {
     return (
       <View className="flex-row items-center gap-1">
-        <ActivityIndicator size="small" color="#7d8390" />
+        <ActivityIndicator size="small" color={colors.mutedForeground} />
         <Text className="text-xs text-muted-foreground">接続中…</Text>
       </View>
     );
@@ -183,7 +184,7 @@ function ConnectionBadge({ state, muted }: ConnectionBadgeProps) {
   if (state === "error") {
     return (
       <View className="flex-row items-center gap-1">
-        <AlertCircle size={12} color="#e84545" />
+        <AlertCircle size={12} color={colors.destructive} />
         <Text className="text-xs text-destructive">切断</Text>
       </View>
     );
@@ -194,7 +195,7 @@ function ConnectionBadge({ state, muted }: ConnectionBadgeProps) {
 function ErrorBox({ message }: { message: string }) {
   return (
     <View className="max-w-md flex-row items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-4">
-      <AlertCircle size={16} color="#e84545" />
+      <AlertCircle size={16} color={colors.destructive} />
       <Text className="flex-1 text-sm text-destructive">{message}</Text>
     </View>
   );

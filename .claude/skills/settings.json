@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'UI変更を検知。baseline-ui スキルの適用を検討してください' >&2"
+          }
+        ]
+      }
+    ]
+  }
+}

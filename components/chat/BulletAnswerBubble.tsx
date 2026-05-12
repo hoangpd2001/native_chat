@@ -1,7 +1,8 @@
 import { AlertCircle } from "lucide-react-native";
-import { Animated, Text, View } from "react-native";
 import { useEffect, useRef } from "react";
+import { Animated, Text, View } from "react-native";
 import type { AnswerEntry } from "@/hooks/use-answer-stream";
+import { colors } from "@/lib/theme";
 
 type BulletAnswerBubbleProps = {
   entry: AnswerEntry;
@@ -116,7 +117,7 @@ export function BulletAnswerBubble({ entry }: BulletAnswerBubbleProps) {
     <View className="max-w-[90%] self-end rounded-2xl rounded-br-sm border border-destructive/30 bg-destructive/10 px-4 py-3">
       {entry.text ? <Text className="mb-2 text-base text-foreground/70">{entry.text}</Text> : null}
       <View className="flex-row items-center">
-        <AlertCircle size={16} color="#e84545" />
+        <AlertCircle size={16} color={colors.destructive} />
         <Text className="ml-2 text-sm text-destructive">{entry.error}</Text>
       </View>
     </View>

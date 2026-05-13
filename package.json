@@ -2,6 +2,11 @@
   "name": "kanpe-ai-native",
   "version": "1.0.0",
   "main": "index.ts",
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=10"
+  },
   "scripts": {
     "start": "expo start",
     "android": "expo run:android",

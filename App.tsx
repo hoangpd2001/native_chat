@@ -3,7 +3,7 @@ import Clipboard from "@react-native-clipboard/clipboard";
 import { StatusBar } from "expo-status-bar";
 import { AlertCircle, Mic, MicOff, Radio, Square } from "lucide-react-native";
 import { useEffect, useMemo } from "react";
-import { ActivityIndicator, Pressable, Text, View } from "react-native";
+import { ActivityIndicator, Linking, Pressable, Text, View } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import type { ChatMessage } from "@/components/chat/ChatArea";
 import { ChatArea } from "@/components/chat/ChatArea";
@@ -80,7 +80,7 @@ export default function App() {
           {/* エラー表示 */}
           {hasMicError && mic.error ? (
             <View className="px-4 py-2">
-              <ErrorBox message={mic.error} />
+              <ErrorBox message={mic.error} showSettingsLink={mic.state === "denied"} />
             </View>
           ) : null}
           {rt.error ? (
@@ -192,11 +192,28 @@ function ConnectionBadge({ state, muted }: ConnectionBadgeProps) {
   return null;
 }
 
-function ErrorBox({ message }: { message: string }) {
+function ErrorBox({
+  message,
+  showSettingsLink = false,
+}: {
+  message: string;
+  showSettingsLink?: boolean;
+}) {
   return (
-    <View className="max-w-md flex-row items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-4">
-      <AlertCircle size={16} color={colors.destructive} />
-      <Text className="flex-1 text-sm text-destructive">{message}</Text>
+    <View className="gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-4">
+      <View className="flex-row items-start gap-2">
+        <AlertCircle size={16} color={colors.destructive} />
+        <Text className="flex-1 text-sm text-destructive">{message}</Text>
+      </View>
+      {showSettingsLink ? (
+        <Pressable
+          onPress={() => void Linking.openSettings()}
+          accessibilityLabel="設定を開く"
+          className="mt-1 self-start rounded-md border border-destructive/40 px-3 py-1.5 active:opacity-70"
+        >
+          <Text className="text-sm text-destructive">設定を開く</Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }

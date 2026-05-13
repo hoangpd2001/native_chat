@@ -66,13 +66,24 @@ function LoadingDots() {
 
 export function MessageBubble(props: MessageBubbleProps) {
   const [copied, setCopied] = useState(false);
+  const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  useEffect(() => {
+    return () => {
+      if (copyTimerRef.current !== null) clearTimeout(copyTimerRef.current);
+    };
+  }, []);
+
+  const onCopy = props.kind === "question" ? props.onCopy : undefined;
   const handleCopy = useCallback(() => {
-    if (props.kind !== "question") return;
-    props.onCopy?.();
+    onCopy?.();
     setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }, [props]);
+    if (copyTimerRef.current !== null) clearTimeout(copyTimerRef.current);
+    copyTimerRef.current = setTimeout(() => {
+      copyTimerRef.current = null;
+      setCopied(false);
+    }, 2000);
+  }, [onCopy]);
 
   if (props.kind === "question") {
     return (
@@ -85,9 +96,9 @@ export function MessageBubble(props: MessageBubbleProps) {
           {props.onCopy && (
             <Pressable
               onPress={handleCopy}
-              hitSlop={8}
+              hitSlop={10}
               accessibilityLabel="質問と全解答をコピー"
-              className="h-7 w-7 items-center justify-center rounded-md"
+              className="h-7 w-7 items-center justify-center rounded-md active:opacity-60"
             >
               {copied ? (
                 <Check size={14} color={colors.primary} />

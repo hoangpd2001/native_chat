@@ -81,7 +81,9 @@ export function BulletAnswerBubble({ entry }: BulletAnswerBubbleProps) {
             <View
               // biome-ignore lint/suspicious/noArrayIndexKey: bullets derived from streaming text — no stable id
               key={`${i}-${line}`}
-              className={`max-w-[90%] self-end rounded-2xl rounded-br-sm border border-primary/20 bg-primary/5 px-4 py-3 ${isLast ? "opacity-60" : ""}`}
+              className={`max-w-[90%] self-end rounded-2xl rounded-br-sm border border-primary/20 bg-primary/5 px-4 py-3 ${
+                isLast ? "opacity-60" : ""
+              }`}
             >
               <Text className="text-base text-foreground">
                 {line}

@@ -74,16 +74,16 @@ export function MessageBubble(props: MessageBubbleProps) {
     };
   }, []);
 
+  const onCopy = props.kind === "question" ? props.onCopy : undefined;
   const handleCopy = useCallback(() => {
-    if (props.kind !== "question") return;
-    props.onCopy?.();
+    onCopy?.();
     setCopied(true);
     if (copyTimerRef.current !== null) clearTimeout(copyTimerRef.current);
     copyTimerRef.current = setTimeout(() => {
       copyTimerRef.current = null;
       setCopied(false);
     }, 2000);
-  }, [props]);
+  }, [onCopy]);
 
   if (props.kind === "question") {
     return (

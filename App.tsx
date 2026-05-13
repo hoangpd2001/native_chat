@@ -106,7 +106,7 @@ export default function App() {
                   {mic.state === "requesting" ? (
                     <ActivityIndicator size="small" color={colors.primaryForeground} />
                   ) : (
-                    <Mic size={24} color={colors.primaryForeground} />
+                    <Mic size={24} color="#f7f8fa" />
                   )}
                 </Pressable>
               ) : mic.state === "granted" ? (

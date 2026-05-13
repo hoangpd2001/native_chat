@@ -94,11 +94,7 @@ export function useMicrophone(): UseMicrophoneReturn {
 
     levelIntervalRef.current = setInterval(async () => {
       try {
-        const stats = await (
-          track as unknown as {
-            getStats?: () => Promise<Map<string, Record<string, unknown>>>;
-          }
-        ).getStats?.();
+        const stats = await (track as any).getStats?.();
         if (!stats) return;
         let audioLevel = 0;
         stats.forEach((stat) => {

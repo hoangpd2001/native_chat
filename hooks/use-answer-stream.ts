@@ -25,6 +25,7 @@ export interface UseAnswerStreamOptions {
   variant?: "prose" | "bullet";
 }
 
+/** 現在の質問より前で「完了済み」の QA を最大 N 件 (時系列順) 返す */
 function collectPreviousQa(
   currentQuestion: Question,
   allQuestions: Question[],
@@ -77,6 +78,10 @@ function streamPost(
   return { abort: () => xhr.abort() };
 }
 
+/**
+ * 質問配列を監視し、新しい質問ごとに全モデルへ並行ストリームリクエストを発火する hook。
+ * StrictMode の二重マウントでも同じ質問を 2 回 fetch しないように processedRef で重複防止する。
+ */
 export function useAnswerStream(
   questions: Question[],
   opts?: UseAnswerStreamOptions
@@ -102,6 +107,7 @@ export function useAnswerStream(
     optsRef.current = opts;
   }, [opts]);
 
+  /** (questionId, model) ペアの 1 entry のみを差分更新する */
   const patchEntry = useCallback((qid: string, model: ModelKey, patch: Partial<AnswerEntry>) => {
     if (cancelledRef.current) return;
     setAnswers((prev) => ({
@@ -113,6 +119,7 @@ export function useAnswerStream(
     }));
   }, []);
 
+  /** 1 (question × model) 分の /api/answer ストリームを起動し、結果を state に反映する */
   const fireOne = useCallback(
     (q: Question, model: ModelKey) => {
       const key = `${q.id}:${model}`;

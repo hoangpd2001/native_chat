@@ -29,6 +29,7 @@ const HALLUCINATION_EXACT = new Set([
 
 const HALLUCINATION_PATTERN = /^[가-힣ᄀ-ᇿ㄰-㆏ꥠ-꥿ힰ-퟿\s.,!?。、]+$/u;
 
+/** transcript が Whisper の幻覚由来かどうかを判定する */
 function isHallucination(text: string): boolean {
   const lower = text.toLowerCase();
   if (HALLUCINATION_EXACT.has(lower)) return true;
@@ -49,6 +50,10 @@ export interface UseRealtimeTranscriptionReturn {
   commitCurrentPartial: () => void;
 }
 
+/**
+ * MediaStream を OpenAI Realtime API に接続し、transcript と audio level を購読する hook。
+ * `RealtimeClient` (WebRTC + 自前 VAD) を React のライフサイクルと橋渡しする。
+ */
 export function useRealtimeTranscription({
   stream,
   turnDetection,
@@ -56,6 +61,7 @@ export function useRealtimeTranscription({
 }: {
   stream: MediaStream | null;
   turnDetection?: TurnDetectionOptions;
+  /** false にすると transcript_completed では questions に追加せず、commitCurrentPartial() でのみ確定する */
   autoCommit?: boolean;
 }): UseRealtimeTranscriptionReturn {
   const [connectionState, setConnectionState] = useState<RealtimeConnectionState>("idle");
@@ -72,6 +78,7 @@ export function useRealtimeTranscription({
   const autoCommitRef = useRef(autoCommit);
   autoCommitRef.current = autoCommit;
 
+  /** RealtimeClient から流れてくる server event を partial/questions state に反映する */
   const handleEvent = useCallback((ev: RealtimeTranscriptEvent) => {
     if (cancelledRef.current) return;
     switch (ev.type) {
@@ -123,6 +130,7 @@ export function useRealtimeTranscription({
     }
   }, []);
 
+  /** WebRTC 接続を切断し、partial/error/state を初期値に戻す */
   const stop = useCallback(() => {
     cancelledRef.current = true;
     startingRef.current = false;
@@ -137,6 +145,7 @@ export function useRealtimeTranscription({
     setConnectionState("idle");
   }, []);
 
+  /** /api/realtime-token を取得し RealtimeClient を起動して SDP exchange を実行する */
   const start = useCallback(async () => {
     if (startingRef.current) return;
     if (clientRef.current) return;
@@ -188,10 +197,12 @@ export function useRealtimeTranscription({
     }
   }, [stream, turnDetection, handleEvent]);
 
+  /** VAD の silence_duration / threshold を実行時に変更する (デバッグ用) */
   const updateTurnDetection = useCallback((opts: TurnDetectionOptions) => {
     clientRef.current?.updateTurnDetection(opts);
   }, []);
 
+  /** autoCommit=false モード用。蓄積中の partial を 1 件の question として確定する */
   const commitCurrentPartial = useCallback(() => {
     const allText = Array.from(partialByItemRef.current.values())
       .map((t) => t.trim())

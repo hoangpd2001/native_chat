@@ -15,6 +15,11 @@ export interface RealtimeClientOptions {
   turnDetection?: TurnDetectionOptions;
 }
 
+/**
+ * OpenAI Realtime API への WebRTC PeerConnection + DataChannel ラッパー。
+ * gpt-realtime-whisper は server_vad 非対応のため、getStats() を 100ms 周期で
+ * ポーリングして無音区間を検知し input_audio_buffer.commit を自前で送信する。
+ */
 export class RealtimeClient {
   private pc: RTCPeerConnection | null = null;
   private dc: RTCDataChannel | null = null;
@@ -22,9 +27,10 @@ export class RealtimeClient {
   private _state: RealtimeConnectionState = "idle";
   private readonly opts: RealtimeClientOptions;
   private turnDetection: Required<TurnDetectionOptions>;
+  /** disconnect 後に遅延コールバックを無効化するためのトークン */
   private epoch = 0;
 
-  // VAD: getStats() audioLevel ベースの自前VAD
+  // VAD: getStats() audioLevel ベースの自前 VAD 用ループとタイマー
   private vadIntervalId: ReturnType<typeof setInterval> | null = null;
   private silenceTimerId: ReturnType<typeof setTimeout> | null = null;
   private isSpeaking = false;
@@ -42,12 +48,14 @@ export class RealtimeClient {
     return this._state;
   }
 
+  /** state を変更し、変化があれば購読者に通知する */
   private setState(s: RealtimeConnectionState): void {
     if (this._state === s) return;
     this._state = s;
     this.opts.onStateChange(s);
   }
 
+  /** SDP offer/answer 交換を行い WebRTC 接続を確立、DataChannel open で connected に遷移する */
   async connect(stream: MediaStream, ephemeralKey: string): Promise<void> {
     if (this._state === "connecting" || this._state === "connected") return;
     const myEpoch = ++this.epoch;
@@ -150,6 +158,7 @@ export class RealtimeClient {
     await pc.setRemoteDescription({ type: "answer", sdp: answerSdp });
   }
 
+  /** VAD パラメータを実行時に変更する (gpt-realtime-whisper では session.update に反映されない) */
   updateTurnDetection(opts: TurnDetectionOptions): void {
     this.turnDetection = {
       silenceDurationMs: opts.silenceDurationMs ?? this.turnDetection.silenceDurationMs,
@@ -158,6 +167,7 @@ export class RealtimeClient {
     };
   }
 
+  /** DataChannel が open なら任意のサーバーイベントを送信する */
   sendEvent(event: Record<string, unknown>): void {
     const dc = this.dc;
     if (!dc || dc.readyState !== "open") {
@@ -167,12 +177,14 @@ export class RealtimeClient {
     dc.send(JSON.stringify(event));
   }
 
+  /** epoch を進めて遅延コールバックを無効化し、PeerConnection を解放する */
   disconnect(): void {
     this.epoch++;
     this.cleanup();
     if (this._state !== "error") this.setState("idle");
   }
 
+  /** DataChannel / PeerConnection / VAD タイマーを全て解放する */
   private cleanup(): void {
     if (this.dc) {
       try {
@@ -259,6 +271,7 @@ export class RealtimeClient {
     }, 100);
   }
 
+  /** VAD ループとタイマーをクリーンアップする */
   private stopVad(): void {
     if (this.vadIntervalId !== null) {
       clearInterval(this.vadIntervalId);
@@ -271,6 +284,7 @@ export class RealtimeClient {
     this.isSpeaking = false;
   }
 
+  /** OpenAI Realtime API の DataChannel メッセージをパースして購読者へ転送する */
   private handleServerMessage(raw: unknown): void {
     if (typeof raw !== "string") return;
     let parsed: OpenAIRealtimeServerEvent;

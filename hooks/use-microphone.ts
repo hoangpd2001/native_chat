@@ -17,13 +17,7 @@ interface UseMicrophoneReturn {
   toggleMute: () => void;
 }
 
-/**
- * マイク権限をリクエストする。
- * Android: RN core の PermissionsAndroid を使う (react-native-permissions は new arch で
- *   "Tried to use permissions API while not attached to an Activity" のバグあり)
- * iOS: react-native-permissions (PermissionsAndroid は iOS 非対応)
- * @returns "granted" | "denied" | "blocked" | "unavailable"
- */
+/** マイク権限を 4 状態で正規化して返す。Android は PermissionsAndroid、iOS は react-native-permissions を使う */
 async function requestMicPermission(): Promise<"granted" | "denied" | "blocked" | "unavailable"> {
   if (Platform.OS === "android") {
     const result = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.RECORD_AUDIO, {
@@ -46,6 +40,7 @@ async function requestMicPermission(): Promise<"granted" | "denied" | "blocked" 
   return "unavailable";
 }
 
+/** マイクストリーム取得・解放・ミュート・レベルメーターを管理する hook */
 export function useMicrophone(): UseMicrophoneReturn {
   const [state, setState] = useState<MicrophoneState>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -54,15 +49,19 @@ export function useMicrophone(): UseMicrophoneReturn {
   const [muted, setMuted] = useState<boolean>(false);
 
   const streamRef = useRef<MediaStream | null>(null);
+  // start() の冪等チェックを setState の非同期反映を待たずに行うための ref
   const stateRef = useRef<MicrophoneState>("idle");
+  // 非同期処理 (getUserMedia / setInterval) を unmount/stop と競合させずに止めるためのフラグ
   const cancelledRef = useRef(false);
   const levelIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  /** state を ref と同時に更新する */
   const updateState = useCallback((s: MicrophoneState) => {
     stateRef.current = s;
     setState(s);
   }, []);
 
+  /** レベルメーターのポーリングを停止し level を 0 に戻す */
   const stopLevelMeter = useCallback(() => {
     if (levelIntervalRef.current !== null) {
       clearInterval(levelIntervalRef.current);
@@ -71,6 +70,7 @@ export function useMicrophone(): UseMicrophoneReturn {
     setLevel(0);
   }, []);
 
+  /** マイクストリームを完全に解放し idle 状態に戻す */
   const stop = useCallback(() => {
     cancelledRef.current = true;
     stopLevelMeter();
@@ -87,12 +87,7 @@ export function useMicrophone(): UseMicrophoneReturn {
     setError(null);
   }, [stopLevelMeter, updateState]);
 
-  /**
-   * audio track の audioLevel を 100ms ごとに取得してメーター表示に使う。
-   * Web では AudioContext で RMS 計算していたが、RN では WebRTC stats を使う。
-   * react-native-webrtc は stat type ごとに audioLevel の有無が機種依存のため、
-   * type で絞らず audioLevel を持つ任意の audio stat を採用する。
-   */
+  /** audio track の getStats() で audioLevel を 100ms ごとに取得しメーター表示する */
   const startLevelMeter = useCallback((mediaStream: MediaStream) => {
     const track = mediaStream.getAudioTracks()[0];
     if (!track) return;
@@ -119,6 +114,7 @@ export function useMicrophone(): UseMicrophoneReturn {
     }, 100);
   }, []);
 
+  /** 権限リクエスト → getUserMedia → レベルメーター起動の一連を実行する */
   const start = useCallback(async () => {
     if (stateRef.current === "requesting" || stateRef.current === "granted") return;
 
@@ -169,6 +165,7 @@ export function useMicrophone(): UseMicrophoneReturn {
     }
   }, [startLevelMeter, updateState]);
 
+  /** audio track の enabled を反転してミュート状態を切り替える */
   const toggleMute = useCallback(() => {
     if (!streamRef.current) return;
     setMuted((prev) => {

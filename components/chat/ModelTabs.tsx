@@ -42,12 +42,14 @@ export function ModelTabs({ value, onChange, statusByModel }: ModelTabsProps) {
               key={model}
               onPress={() => onChange(model)}
               accessibilityLabel={`${MODEL_LABELS[model]} タブ`}
-              className={`min-h-[48px] flex-1 flex-row items-center justify-center gap-1 rounded-sm px-2 py-1 active:opacity-70 ${
+              className={`min-h-[48px] flex-1 items-center justify-center rounded-sm px-2 py-1 ${
                 active ? "bg-background" : ""
               }`}
             >
               <StatusIcon status={statusByModel[model]} />
-              <Text className="text-sm font-medium text-foreground">{MODEL_LABELS[model]}</Text>
+              <Text className="mt-1 text-sm font-medium text-foreground">
+                {MODEL_LABELS[model]}
+              </Text>
             </Pressable>
           );
         })}

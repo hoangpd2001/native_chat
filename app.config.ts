@@ -6,7 +6,7 @@ import type { ConfigContext, ExpoConfig } from "expo/config";
  * CI build: GitHub Actions → EAS Build → process.env
  */
 const easProjectId = process.env.EAS_PROJECT_ID;
-const apiBaseUrl = process.env.API_BASE_URL ?? "http://10.0.2.2:3000";
+const apiBaseUrl = process.env.API_BASE_URL ?? "http://localhost:3000";
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,

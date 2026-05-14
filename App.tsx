@@ -61,93 +61,93 @@ export default function App() {
   }, [mic.state, rt.connectionState, rt.start]);
 
   return (
-    <SafeAreaProvider>
-      <SafeAreaView className="flex-1 bg-background" edges={["top", "bottom"]}>
-        <View className="mx-auto h-full w-full max-w-md flex-col">
-          {/* マイクレベルバー (RealtimeClient の VAD から得た outbound audio level) */}
-          {isGranted && !mic.muted ? (
-            <View className="h-1 w-full overflow-hidden bg-muted">
-              <View
-                className="h-full bg-primary"
-                style={{ width: `${Math.round(rt.audioLevel * 100)}%` }}
-              />
-            </View>
-          ) : null}
+    < SafeAreaProvider >
+    <SafeAreaView className="flex-1 bg-background" edges={["top", "bottom"]}>
+      <View className="mx-auto h-full w-full max-w-md flex-col">
+        {/* マイクレベルバー (RealtimeClient の VAD から得た outbound audio level) */}
+        {isGranted && !mic.muted ? (
+          <View className="h-1 w-full overflow-hidden bg-muted">
+            <View
+              className="h-full bg-primary"
+              style={{ width: `${Math.round(rt.audioLevel * 100)}%` }}
+            />
+          </View>
+        ) : null}
 
-          {/* チャットエリア */}
-          <ChatArea messages={messages} partial={isGranted ? rt.partial : ""} />
+        {/* チャットエリア */}
+        <ChatArea messages={messages} partial={isGranted ? rt.partial : ""} />
 
-          {/* エラー表示 */}
-          {hasMicError && mic.error ? (
-            <View className="px-4 py-2">
-              <ErrorBox message={mic.error} showSettingsLink={mic.state === "denied"} />
-            </View>
-          ) : null}
-          {rt.error ? (
-            <View className="px-4 py-2">
-              <ErrorBox message={`文字起こし: ${rt.error}`} />
-            </View>
-          ) : null}
+        {/* エラー表示 */}
+        {hasMicError && mic.error ? (
+          <View className="px-4 py-2">
+            <ErrorBox message={mic.error} showSettingsLink={mic.state === "denied"} />
+          </View>
+        ) : null}
+        {rt.error ? (
+          <View className="px-4 py-2">
+            <ErrorBox message={`文字起こし: ${rt.error}`} />
+          </View>
+        ) : null}
 
-          {/* フッター: 左=接続バッジ / 中央=ミュート/開始 / 右=停止 */}
-          <View className="flex-row items-center border-t border-border bg-background px-4 pt-2 pb-3">
-            <View className="flex-1">
-              <ConnectionBadge state={rt.connectionState} muted={isGranted && mic.muted} />
-            </View>
+        {/* フッター: 左=接続バッジ / 中央=ミュート/開始 / 右=停止 */}
+        <View className="flex-row items-center border-t border-border bg-background px-4 pt-2 pb-3">
+          <View className="flex-1">
+            <ConnectionBadge state={rt.connectionState} muted={isGranted && mic.muted} />
+          </View>
 
-            <View className="flex-1 items-center">
-              {mic.state === "idle" || mic.state === "requesting" ? (
-                <Pressable
-                  onPress={mic.start}
-                  disabled={mic.state === "requesting"}
-                  accessibilityLabel={mic.state === "requesting" ? "確認中" : "マイクを開始"}
-                  className="h-14 w-14 items-center justify-center rounded-full bg-primary active:opacity-80"
-                >
-                  {mic.state === "requesting" ? (
-                    <ActivityIndicator size="small" color={colors.primaryForeground} />
-                  ) : (
-                    <Mic size={24} color={colors.primaryForeground} />
-                  )}
-                </Pressable>
-              ) : mic.state === "granted" ? (
-                <Pressable
-                  onPress={mic.toggleMute}
-                  accessibilityLabel={mic.muted ? "ミュート解除" : "ミュート"}
-                  className={
-                    mic.muted
-                      ? "h-14 w-14 items-center justify-center rounded-full bg-destructive active:opacity-80"
-                      : "h-14 w-14 items-center justify-center rounded-full bg-primary active:opacity-80"
-                  }
-                >
-                  <MicOff size={24} color={colors.destructiveForeground} />
-                </Pressable>
-              ) : (
-                <Pressable
-                  onPress={mic.start}
-                  className="min-h-[48px] min-w-[200px] flex-row items-center justify-center rounded-md border border-border bg-card px-4 active:opacity-80"
-                >
-                  <Mic size={20} color={colors.foreground} />
-                  <Text className="ml-2 text-base text-foreground">もう一度試す</Text>
-                </Pressable>
-              )}
-            </View>
+          <View className="flex-1 items-center">
+            {mic.state === "idle" || mic.state === "requesting" ? (
+              <Pressable
+                onPress={mic.start}
+                disabled={mic.state === "requesting"}
+                accessibilityLabel={mic.state === "requesting" ? "確認中" : "マイクを開始"}
+                className="h-14 w-14 items-center justify-center rounded-full bg-primary active:opacity-80"
+              >
+                {mic.state === "requesting" ? (
+                  <ActivityIndicator size="small" color={colors.primaryForeground} />
+                ) : (
+                  <Mic size={24} color={colors.primaryForeground} />
+                )}
+              </Pressable>
+            ) : mic.state === "granted" ? (
+              <Pressable
+                onPress={mic.toggleMute}
+                accessibilityLabel={mic.muted ? "ミュート解除" : "ミュート"}
+                className={
+                  mic.muted
+                    ? "h-14 w-14 items-center justify-center rounded-full bg-destructive active:opacity-80"
+                    : "h-14 w-14 items-center justify-center rounded-full bg-primary active:opacity-80"
+                }
+              >
+                <MicOff size={24} color={colors.destructiveForeground} />
+              </Pressable>
+            ) : (
+              <Pressable
+                onPress={mic.start}
+                className="min-h-[48px] min-w-[200px] flex-row items-center justify-center rounded-md border border-border bg-card px-4 active:opacity-80"
+              >
+                <Mic size={20} color={colors.foreground} />
+                <Text className="ml-2 text-base text-foreground">もう一度試す</Text>
+              </Pressable>
+            )}
+          </View>
 
-            <View className="flex-1 items-end">
-              {isGranted ? (
-                <Pressable
-                  onPress={mic.stop}
-                  accessibilityLabel="マイクを停止"
-                  className="h-11 w-11 items-center justify-center rounded-md active:opacity-60"
-                >
-                  <Square size={16} color={colors.foreground} />
-                </Pressable>
-              ) : null}
-            </View>
+          <View className="flex-1 items-end">
+            {isGranted ? (
+              <Pressable
+                onPress={mic.stop}
+                accessibilityLabel="マイクを停止"
+                className="h-11 w-11 items-center justify-center rounded-md active:opacity-60"
+              >
+                <Square size={16} color={colors.foreground} />
+              </Pressable>
+            ) : null}
           </View>
         </View>
-        <StatusBar style="light" />
-      </SafeAreaView>
-    </SafeAreaProvider>
+      </View>
+      <StatusBar style="light" />
+    </SafeAreaView>
+    </SafeAreaProvider >
   );
 }
 

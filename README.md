@@ -69,9 +69,9 @@ cp .env.example .env
 
 | キー | 用途 | 値の例 |
 |---|---|---|
-| `API_BASE_URL` | Web BE のベース URL | `http://10.0.2.2:3000` (Android emulator 用) |
+| `API_BASE_URL` | Web BE のベース URL | `http://x.x.x.x:3000` (Android emulator 用) |
 
-- Android emulator: `http://10.0.2.2:3000` (host の localhost に到達)
+- Android emulator: `http://x.x.x.x:3000` (host の localhost に到達)
 - 実機 (Wi-Fi): `http://<PC の LAN IP>:3000`
 - 本番: Railway のデプロイ URL
 

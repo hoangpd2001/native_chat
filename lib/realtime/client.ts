@@ -61,9 +61,7 @@ export class RealtimeClient {
     const myEpoch = ++this.epoch;
     this.setState("connecting");
 
-    const pc = new RTCPeerConnection({
-      iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
-    });
+    const pc = new RTCPeerConnection({ iceServers: [] });
     this.pc = pc;
 
     // @ts-expect-error react-native-webrtc 型に onconnectionstatechange が無いが実機では動作する
@@ -121,10 +119,7 @@ export class RealtimeClient {
     };
     if (pcAny.iceGatheringState !== "complete") {
       await new Promise<void>((resolve) => {
-        const timer = setTimeout(() => {
-          pcAny.onicegatheringstatechange = null;
-          resolve();
-        }, 500);
+        const timer = setTimeout(resolve, 500);
         pcAny.onicegatheringstatechange = () => {
           if (pcAny.iceGatheringState === "complete") {
             clearTimeout(timer);

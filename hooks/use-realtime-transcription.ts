@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { MediaStream } from "react-native-webrtc";
+import type { AudioPipeline } from "@/lib/audio/pipeline";
 import { env } from "@/lib/env";
 import { RealtimeClient } from "@/lib/realtime/client";
 import type {
@@ -56,10 +57,13 @@ export interface UseRealtimeTranscriptionReturn {
  */
 export function useRealtimeTranscription({
   stream,
+  pipeline,
   turnDetection,
   autoCommit = true,
 }: {
   stream: MediaStream | null;
+  /** AudioPipeline インスタンス。VAD が PCM RMS を受け取るために必要 */
+  pipeline: AudioPipeline | null;
   turnDetection?: TurnDetectionOptions;
   /** false にすると transcript_completed では questions に追加せず、commitCurrentPartial() でのみ確定する */
   autoCommit?: boolean;
@@ -181,7 +185,7 @@ export function useRealtimeTranscription({
       });
       clientRef.current = client;
 
-      await client.connect(stream, token.clientSecret);
+      await client.connect(stream, token.clientSecret, pipeline ?? undefined);
     } catch (err) {
       if (cancelledRef.current) return;
       const message = err instanceof Error ? err.message : "接続に失敗しました";
@@ -195,7 +199,7 @@ export function useRealtimeTranscription({
     } finally {
       startingRef.current = false;
     }
-  }, [stream, turnDetection, handleEvent]);
+  }, [stream, pipeline, turnDetection, handleEvent]);
 
   /** VAD の silence_duration / threshold を実行時に変更する (デバッグ用) */
   const updateTurnDetection = useCallback((opts: TurnDetectionOptions) => {
@@ -217,10 +221,10 @@ export function useRealtimeTranscription({
   }, []);
 
   useEffect(() => {
-    if (!stream && clientRef.current) {
+    if ((!stream || !pipeline) && clientRef.current) {
       stop();
     }
-  }, [stream, stop]);
+  }, [stream, pipeline, stop]);
 
   useEffect(() => {
     return () => {

@@ -17,7 +17,7 @@ import { colors } from "@/lib/theme";
 export default function App() {
   const activeModel: ModelKey = "openai";
   const mic = useMicrophone();
-  const rt = useRealtimeTranscription({ stream: mic.stream });
+  const rt = useRealtimeTranscription({ stream: mic.stream, pipeline: mic.pipeline });
   const { answers } = useAnswerStream(rt.questions);
 
   const isGranted = mic.state === "granted";

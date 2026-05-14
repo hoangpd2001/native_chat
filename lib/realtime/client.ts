@@ -1,5 +1,6 @@
 import { type MediaStream, RTCPeerConnection, type RTCRtpSender } from "react-native-webrtc";
 import type RTCDataChannel from "react-native-webrtc/lib/typescript/RTCDataChannel";
+import type { AudioPipeline, PcmListener } from "@/lib/audio/pipeline";
 import type {
   OpenAIRealtimeServerEvent,
   RealtimeConnectionState,
@@ -10,15 +11,19 @@ import type {
 export interface RealtimeClientOptions {
   onEvent: (event: RealtimeTranscriptEvent) => void;
   onStateChange: (state: RealtimeConnectionState) => void;
-  /** VAD ループから 100ms 間隔で取得した outbound audio level (0..1) を通知する */
+  /**
+   * AudioPipeline から RMS (0..1) を受け取り UI 側に通知する。
+   * getStats() ポーリングの代わりに pipeline の PCM RMS を使う。
+   */
   onAudioLevel?: (level: number) => void;
   turnDetection?: TurnDetectionOptions;
 }
 
 /**
  * OpenAI Realtime API への WebRTC PeerConnection + DataChannel ラッパー。
- * gpt-realtime-whisper は server_vad 非対応のため、getStats() を 100ms 周期で
- * ポーリングして無音区間を検知し input_audio_buffer.commit を自前で送信する。
+ * gpt-realtime-whisper は server_vad 非対応のため、AudioPipeline の PCM RMS を
+ * 使って無音区間を検知し input_audio_buffer.commit を自前で送信する。
+ * (旧: getStats() 100ms ポーリング → 新: pipeline.addListener() で PCM RMS を受信)
  */
 export class RealtimeClient {
   private pc: RTCPeerConnection | null = null;
@@ -30,8 +35,9 @@ export class RealtimeClient {
   /** disconnect 後に遅延コールバックを無効化するためのトークン */
   private epoch = 0;
 
-  // VAD: getStats() audioLevel ベースの自前 VAD 用ループとタイマー
-  private vadIntervalId: ReturnType<typeof setInterval> | null = null;
+  // VAD: AudioPipeline PCM RMS ベースの自前 VAD
+  private pipeline: AudioPipeline | null = null;
+  private vadPcmListener: PcmListener | null = null;
   private silenceTimerId: ReturnType<typeof setTimeout> | null = null;
   private isSpeaking = false;
 
@@ -56,9 +62,14 @@ export class RealtimeClient {
   }
 
   /** SDP offer/answer 交換を行い WebRTC 接続を確立、DataChannel open で connected に遷移する */
-  async connect(stream: MediaStream, ephemeralKey: string): Promise<void> {
+  async connect(
+    stream: MediaStream,
+    ephemeralKey: string,
+    pipeline?: AudioPipeline
+  ): Promise<void> {
     if (this._state === "connecting" || this._state === "connected") return;
     const myEpoch = ++this.epoch;
+    this.pipeline = pipeline ?? null;
     this.setState("connecting");
 
     const pc = new RTCPeerConnection({ iceServers: [] });
@@ -214,40 +225,22 @@ export class RealtimeClient {
   }
 
   /**
-   * getStats() の audioLevel をポーリングして自前VAD を行う。
+   * AudioPipeline の PCM RMS を使って自前 VAD を行う。
    * gpt-realtime-whisper は server_vad 非対応のためフロント側で commit を送る必要がある。
-   * React Native では Web Audio API が無いため AudioContext の代わりに WebRTC stats を使う。
+   * pipeline が渡されていない場合は VAD を無効化する。
    */
   private startVad(): void {
-    const SILENCE_THRESHOLD = this.turnDetection.threshold;
-    const sender = this.senders[0];
-    if (!sender) {
-      console.warn("[RealtimeClient] no audio sender, VAD disabled");
+    if (!this.pipeline) {
+      console.warn("[RealtimeClient] no AudioPipeline, VAD disabled");
       return;
     }
 
-    this.vadIntervalId = setInterval(async () => {
-      let audioLevel = 0;
-      try {
-        const stats = await (
-          sender as unknown as {
-            getStats: () => Promise<Map<string, Record<string, unknown>>>;
-          }
-        ).getStats();
-        stats.forEach((stat) => {
-          const lvl = stat.audioLevel;
-          if (typeof lvl === "number" && lvl > audioLevel) {
-            audioLevel = lvl;
-          }
-        });
-      } catch {
-        // getStats が失敗してもループは続ける
-        return;
-      }
+    const SILENCE_THRESHOLD = this.turnDetection.threshold;
 
-      this.opts.onAudioLevel?.(audioLevel);
+    this.vadPcmListener = (_pcm, rms) => {
+      this.opts.onAudioLevel?.(rms);
 
-      const isSilent = audioLevel < SILENCE_THRESHOLD;
+      const isSilent = rms < SILENCE_THRESHOLD;
 
       if (isSilent) {
         if (this.isSpeaking) this.isSpeaking = false;
@@ -268,19 +261,22 @@ export class RealtimeClient {
           }
         }
       }
-    }, 100);
+    };
+
+    this.pipeline.addListener(this.vadPcmListener);
   }
 
-  /** VAD ループとタイマーをクリーンアップする */
+  /** VAD リスナーとタイマーをクリーンアップする */
   private stopVad(): void {
-    if (this.vadIntervalId !== null) {
-      clearInterval(this.vadIntervalId);
-      this.vadIntervalId = null;
+    if (this.vadPcmListener !== null) {
+      this.pipeline?.removeListener(this.vadPcmListener);
+      this.vadPcmListener = null;
     }
     if (this.silenceTimerId !== null) {
       clearTimeout(this.silenceTimerId);
       this.silenceTimerId = null;
     }
+    this.pipeline = null;
     this.isSpeaking = false;
   }
 

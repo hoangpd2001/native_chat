@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { PermissionsAndroid, Platform } from "react-native";
 import { PERMISSIONS, RESULTS, request as requestPermission } from "react-native-permissions";
 import { type MediaStream, mediaDevices } from "react-native-webrtc";
+import { AudioPipeline } from "@/lib/audio/pipeline";
 
 type MicrophoneState =
   | "idle"
@@ -15,9 +16,11 @@ type MicrophoneState =
 interface UseMicrophoneReturn {
   state: MicrophoneState;
   error: string | null;
-  /** 0..1 の音量レベル (getStats audioLevel ベース) */
+  /** 0..1 の音量レベル (PCM RMS ベース、Web 版 use-microphone.ts:74 と同ロジック) */
   level: number;
   stream: MediaStream | null;
+  /** AudioPipeline インスタンス。RealtimeClient が addListener() で PCM を受け取る */
+  pipeline: AudioPipeline | null;
   muted: boolean;
   start: () => Promise<void>;
   stop: () => void;
@@ -47,20 +50,27 @@ async function requestMicPermission(): Promise<"granted" | "denied" | "blocked" 
   return "unavailable";
 }
 
-/** マイクストリーム取得・解放・ミュート・レベルメーターを管理する hook */
+/**
+ * マイクストリーム・AudioPipeline・ミュート・音量レベルを管理する hook。
+ *
+ * - WebRTC track (getUserMedia) は RTCPeerConnection への addTrack 用に取得する
+ * - AudioPipeline (react-native-audio-record) が PCM を VAD・音量メーターへ配る
+ * - 両者は同じマイクを使うが、RN では AudioContext が無いため役割を分離する
+ */
 export function useMicrophone(): UseMicrophoneReturn {
   const [state, setState] = useState<MicrophoneState>("idle");
   const [error, setError] = useState<string | null>(null);
   const [level, setLevel] = useState(0);
   const [stream, setStream] = useState<MediaStream | null>(null);
+  const [pipeline, setPipeline] = useState<AudioPipeline | null>(null);
   const [muted, setMuted] = useState<boolean>(false);
 
   const streamRef = useRef<MediaStream | null>(null);
+  const pipelineRef = useRef<AudioPipeline | null>(null);
   // start() の冪等チェックを setState の非同期反映を待たずに行うための ref
   const stateRef = useRef<MicrophoneState>("idle");
-  // 非同期処理 (getUserMedia / setInterval) を unmount/stop と競合させずに止めるためのフラグ
+  // 非同期処理 (getUserMedia / AudioRecord) を unmount/stop と競合させずに止めるためのフラグ
   const cancelledRef = useRef(false);
-  const levelIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   /** state を ref と同時に更新する */
   const updateState = useCallback((s: MicrophoneState) => {
@@ -68,19 +78,18 @@ export function useMicrophone(): UseMicrophoneReturn {
     setState(s);
   }, []);
 
-  /** レベルメーターのポーリングを停止し level を 0 に戻す */
-  const stopLevelMeter = useCallback(() => {
-    if (levelIntervalRef.current !== null) {
-      clearInterval(levelIntervalRef.current);
-      levelIntervalRef.current = null;
-    }
-    setLevel(0);
-  }, []);
-
-  /** マイクストリームを完全に解放し idle 状態に戻す */
+  /** AudioPipeline と WebRTC stream を完全に解放し idle 状態に戻す */
   const stop = useCallback(() => {
     cancelledRef.current = true;
-    stopLevelMeter();
+
+    if (pipelineRef.current) {
+      pipelineRef.current.stop().catch(() => {
+        /* ignore */
+      });
+      pipelineRef.current = null;
+      setPipeline(null);
+    }
+
     if (streamRef.current) {
       for (const track of streamRef.current.getTracks()) {
         track.stop();
@@ -89,39 +98,14 @@ export function useMicrophone(): UseMicrophoneReturn {
       streamRef.current = null;
       setStream(null);
     }
+
+    setLevel(0);
     setMuted(false);
     updateState("idle");
     setError(null);
-  }, [stopLevelMeter, updateState]);
+  }, [updateState]);
 
-  /** audio track の getStats() で audioLevel を 100ms ごとに取得しメーター表示する */
-  const startLevelMeter = useCallback((mediaStream: MediaStream) => {
-    const track = mediaStream.getAudioTracks()[0];
-    if (!track) return;
-
-    levelIntervalRef.current = setInterval(async () => {
-      try {
-        const stats = await (
-          track as unknown as {
-            getStats?: () => Promise<Map<string, Record<string, unknown>>>;
-          }
-        ).getStats?.();
-        if (!stats) return;
-        let audioLevel = 0;
-        stats.forEach((stat) => {
-          const lvl = stat.audioLevel;
-          if (typeof lvl === "number" && lvl > audioLevel) {
-            audioLevel = lvl;
-          }
-        });
-        setLevel(Math.min(audioLevel * 4, 1));
-      } catch {
-        /* ignore */
-      }
-    }, 100);
-  }, []);
-
-  /** 権限リクエスト → getUserMedia → レベルメーター起動の一連を実行する */
+  /** 権限リクエスト → getUserMedia + AudioPipeline 起動の一連を実行する */
   const start = useCallback(async () => {
     if (stateRef.current === "requesting" || stateRef.current === "granted") return;
 
@@ -156,6 +140,7 @@ export function useMicrophone(): UseMicrophoneReturn {
         return;
       }
 
+      // WebRTC track: RTCPeerConnection.addTrack() に渡すために取得
       const mediaStream = (await mediaDevices.getUserMedia({ audio: true })) as MediaStream;
 
       if (cancelledRef.current) {
@@ -165,26 +150,43 @@ export function useMicrophone(): UseMicrophoneReturn {
         return;
       }
 
+      // AudioPipeline: PCM データを VAD・音量メーターへ配る
+      const audioPipeline = new AudioPipeline({
+        sampleRate: 16000,
+        onPcm: (_pcm, rms) => {
+          // RMS を 0..1 に増幅して level state へ反映 (Web 版と同スケール感)
+          setLevel(Math.min(rms * 4, 1));
+        },
+      });
+
       streamRef.current = mediaStream;
+      pipelineRef.current = audioPipeline;
       setStream(mediaStream);
+      setPipeline(audioPipeline);
       setMuted(false);
       updateState("granted");
-      startLevelMeter(mediaStream);
+
+      audioPipeline.start();
     } catch (err) {
       if (cancelledRef.current) return;
       updateState("error");
       setError(err instanceof Error ? err.message : "不明なエラーが発生しました");
     }
-  }, [startLevelMeter, updateState]);
+  }, [updateState]);
 
-  /** audio track の enabled を反転してミュート状態を切り替える */
+  /**
+   * ミュート状態を切り替える。
+   * - WebRTC track の enabled で送信を止める (RTCPeerConnection への影響)
+   * - AudioPipeline の setMuted で PCM を無音化する (VAD・メーターへの影響)
+   */
   const toggleMute = useCallback(() => {
-    if (!streamRef.current) return;
+    if (!streamRef.current || !pipelineRef.current) return;
     setMuted((prev) => {
       const next = !prev;
       for (const track of streamRef.current?.getAudioTracks() ?? []) {
         track.enabled = !next;
       }
+      pipelineRef.current?.setMuted(next);
       return next;
     });
   }, []);
@@ -195,5 +197,5 @@ export function useMicrophone(): UseMicrophoneReturn {
     };
   }, [stop]);
 
-  return { state, error, level, stream, muted, start, stop, toggleMute };
+  return { state, error, level, stream, pipeline, muted, start, stop, toggleMute };
 }

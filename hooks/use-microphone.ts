@@ -3,7 +3,14 @@ import { PermissionsAndroid, Platform } from "react-native";
 import { PERMISSIONS, RESULTS, request as requestPermission } from "react-native-permissions";
 import { type MediaStream, mediaDevices } from "react-native-webrtc";
 
-type MicrophoneState = "idle" | "requesting" | "granted" | "denied" | "unsupported" | "error";
+type MicrophoneState =
+  | "idle"
+  | "requesting"
+  | "granted"
+  | "denied"
+  | "blocked"
+  | "unsupported"
+  | "error";
 
 interface UseMicrophoneReturn {
   state: MicrophoneState;
@@ -133,9 +140,14 @@ export function useMicrophone(): UseMicrophoneReturn {
 
       if (cancelledRef.current) return;
 
-      if (result === "blocked" || result === "denied") {
+      if (result === "blocked") {
+        updateState("blocked");
+        setError("マイクの使用が永続的に拒否されました。設定からアクセスを許可してください");
+        return;
+      }
+      if (result === "denied") {
         updateState("denied");
-        setError("マイクの使用が拒否されました。設定からアクセスを許可してください");
+        setError("マイクの使用が拒否されました");
         return;
       }
       if (result === "unavailable") {

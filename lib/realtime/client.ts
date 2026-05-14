@@ -231,16 +231,18 @@ export class RealtimeClient {
    */
   private startVad(): void {
     if (!this.pipeline) {
-      console.warn("[RealtimeClient] no AudioPipeline, VAD disabled");
+      this.opts.onEvent({
+        type: "error",
+        message:
+          "AudioPipeline が渡されていないため VAD が無効です。音声の文字起こしが行われません。",
+      });
       return;
     }
-
-    const SILENCE_THRESHOLD = this.turnDetection.threshold;
 
     this.vadPcmListener = (_pcm, rms) => {
       this.opts.onAudioLevel?.(rms);
 
-      const isSilent = rms < SILENCE_THRESHOLD;
+      const isSilent = rms < this.turnDetection.threshold;
 
       if (isSilent) {
         if (this.isSpeaking) this.isSpeaking = false;

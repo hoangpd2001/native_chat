@@ -83,7 +83,10 @@ export default function App() {
           {/* エラー表示 */}
           {hasMicError && mic.error ? (
             <View className="px-4 py-2">
-              <ErrorBox message={mic.error} showSettingsLink={mic.state === "blocked" || mic.state === "denied"} />
+              <ErrorBox
+                message={mic.error}
+                showSettingsLink={mic.state === "blocked" || mic.state === "denied"}
+              />
             </View>
           ) : null}
           {rt.error ? (

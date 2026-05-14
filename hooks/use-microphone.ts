@@ -16,8 +16,6 @@ type MicrophoneState =
 interface UseMicrophoneReturn {
   state: MicrophoneState;
   error: string | null;
-  /** 0..1 の音量レベル (PCM RMS ベース、Web 版 use-microphone.ts:74 と同ロジック) */
-  level: number;
   stream: MediaStream | null;
   /** AudioPipeline インスタンス。RealtimeClient が addListener() で PCM を受け取る */
   pipeline: AudioPipeline | null;
@@ -60,7 +58,6 @@ async function requestMicPermission(): Promise<"granted" | "denied" | "blocked" 
 export function useMicrophone(): UseMicrophoneReturn {
   const [state, setState] = useState<MicrophoneState>("idle");
   const [error, setError] = useState<string | null>(null);
-  const [level, setLevel] = useState(0);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [pipeline, setPipeline] = useState<AudioPipeline | null>(null);
   const [muted, setMuted] = useState<boolean>(false);
@@ -99,7 +96,6 @@ export function useMicrophone(): UseMicrophoneReturn {
       setStream(null);
     }
 
-    setLevel(0);
     setMuted(false);
     updateState("idle");
     setError(null);
@@ -151,13 +147,7 @@ export function useMicrophone(): UseMicrophoneReturn {
       }
 
       // AudioPipeline: PCM データを VAD・音量メーターへ配る
-      const audioPipeline = new AudioPipeline({
-        sampleRate: 16000,
-        onPcm: (_pcm, rms) => {
-          // RMS を 0..1 に増幅して level state へ反映 (Web 版と同スケール感)
-          setLevel(Math.min(rms * 4, 1));
-        },
-      });
+      const audioPipeline = new AudioPipeline({ sampleRate: 16000 });
 
       streamRef.current = mediaStream;
       pipelineRef.current = audioPipeline;
@@ -181,14 +171,12 @@ export function useMicrophone(): UseMicrophoneReturn {
    */
   const toggleMute = useCallback(() => {
     if (!streamRef.current || !pipelineRef.current) return;
-    setMuted((prev) => {
-      const next = !prev;
-      for (const track of streamRef.current?.getAudioTracks() ?? []) {
-        track.enabled = !next;
-      }
-      pipelineRef.current?.setMuted(next);
-      return next;
-    });
+    const next = !pipelineRef.current.isMuted;
+    for (const track of streamRef.current.getAudioTracks()) {
+      track.enabled = !next;
+    }
+    pipelineRef.current.setMuted(next);
+    setMuted(next);
   }, []);
 
   useEffect(() => {
@@ -197,5 +185,5 @@ export function useMicrophone(): UseMicrophoneReturn {
     };
   }, [stop]);
 
-  return { state, error, level, stream, pipeline, muted, start, stop, toggleMute };
+  return { state, error, stream, pipeline, muted, start, stop, toggleMute };
 }

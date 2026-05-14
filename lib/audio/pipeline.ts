@@ -22,6 +22,8 @@ export class AudioPipeline {
   private listeners = new Set<PcmListener>();
   private running = false;
   private muted = false;
+  // react-native-audio-record の型定義は void だが実装は EmitterSubscription を返す
+  private dataSubscription: { remove: () => void } | null = null;
 
   constructor(opts: AudioPipelineOptions = {}) {
     this.sampleRate = opts.sampleRate ?? 16000;
@@ -49,10 +51,13 @@ export class AudioPipeline {
       bitsPerSample: 16,
       // audioSource 6 = VOICE_COMMUNICATION (エコーキャンセル有効)
       audioSource: 6,
+      // wavFile は react-native-audio-record の必須フィールド。無効化 API が無いため
+      // ファイル名のみ固定し、長時間録音時のディスク使用量はアプリ終了時にクリアする運用とする。
       wavFile: "audio_pipeline.wav",
     });
 
-    AudioRecord.on("data", (base64: string) => {
+    // AudioRecord.on の型定義は void だが実装は EmitterSubscription を返す
+    this.dataSubscription = AudioRecord.on("data", (base64: string) => {
       if (!this.running) return;
 
       const binary = atob(base64);
@@ -77,7 +82,7 @@ export class AudioPipeline {
       for (const fn of this.listeners) {
         fn(samples, rms);
       }
-    });
+    }) as unknown as { remove: () => void };
 
     AudioRecord.start();
   }
@@ -86,6 +91,8 @@ export class AudioPipeline {
   async stop(): Promise<void> {
     if (!this.running) return;
     this.running = false;
+    this.dataSubscription?.remove();
+    this.dataSubscription = null;
     await AudioRecord.stop();
   }
 

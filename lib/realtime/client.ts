@@ -45,7 +45,7 @@ export class RealtimeClient {
     this.opts = opts;
     this.turnDetection = {
       silenceDurationMs: opts.turnDetection?.silenceDurationMs ?? 800,
-      threshold: opts.turnDetection?.threshold ?? 0.02,
+      threshold: opts.turnDetection?.threshold ?? 0.05,
       prefixPaddingMs: opts.turnDetection?.prefixPaddingMs ?? 300,
     };
   }

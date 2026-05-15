@@ -1,6 +1,6 @@
 import { Mic } from "lucide-react-native";
-import { useRef } from "react";
-import { ScrollView, Text, View } from "react-native";
+import { useCallback, useMemo } from "react";
+import { FlatList, type ListRenderItem, Text, View } from "react-native";
 import type { AnswerEntry } from "@/hooks/use-answer-stream";
 import { colors } from "@/lib/theme";
 import { MessageBubble } from "./MessageBubble";
@@ -23,8 +23,12 @@ function PartialBubble({ text }: { text: string }) {
 }
 
 function EmptyState() {
+  // inverted: scaleY -1 で反転表示されるため、コンテンツも反転して正立させる
   return (
-    <View className="flex-1 items-center justify-center gap-4 py-16">
+    <View
+      className="flex-1 items-center justify-center gap-4 py-16"
+      style={{ transform: [{ scaleY: -1 }] }}
+    >
       <View className="relative h-24 w-24 items-center justify-center">
         <View className="absolute h-24 w-24 rounded-full border border-primary/10" />
         <View className="absolute h-16 w-16 rounded-full border border-primary/20" />
@@ -36,33 +40,47 @@ function EmptyState() {
 }
 
 export function ChatArea({ messages, partial }: ChatAreaProps) {
-  const scrollRef = useRef<ScrollView>(null);
+  // inverted FlatList は index 0 が画面下端。新しいメッセージを下に積むため
+  // messages を逆順にして FlatList に渡す (元配列を直接 reverse しない)
+  const reversedMessages = useMemo(() => [...messages].reverse(), [messages]);
+
+  const renderItem = useCallback<ListRenderItem<ChatMessage>>(({ item }) => {
+    if (item.kind === "question") {
+      return (
+        <MessageBubble
+          kind="question"
+          text={item.text}
+          createdAt={item.createdAt}
+          onCopy={item.onCopy}
+        />
+      );
+    }
+    return <MessageBubble kind="answer" entry={item.entry} />;
+  }, []);
+
+  const keyExtractor = useCallback((item: ChatMessage) => item.id, []);
 
   return (
-    <ScrollView
-      ref={scrollRef}
+    <FlatList
       className="flex-1"
+      data={reversedMessages}
+      renderItem={renderItem}
+      keyExtractor={keyExtractor}
+      // inverted=true: 下から積み上げ。新しいメッセージは自動的に下端に表示される
+      // (scrollToEnd を呼ばなくても content size 変化時に追従する)
+      inverted
       contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 12, gap: 12 }}
       showsVerticalScrollIndicator={false}
-      // content の高さが変わるたびに下端へスクロール (新メッセージ・ストリーミング両方に対応)
-      onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
-    >
-      {messages.length === 0 && !partial && <EmptyState />}
-      {messages.map((msg) => {
-        if (msg.kind === "question") {
-          return (
-            <MessageBubble
-              key={msg.id}
-              kind="question"
-              text={msg.text}
-              createdAt={msg.createdAt}
-              onCopy={msg.onCopy}
-            />
-          );
-        }
-        return <MessageBubble key={msg.id} kind="answer" entry={msg.entry} />;
-      })}
-      {partial ? <PartialBubble text={partial} /> : null}
-    </ScrollView>
+      // パフォーマンス最適化 (KAN2-23 で MAX_QUESTIONS=20 のため初期描画も小さくて済む)
+      initialNumToRender={10}
+      maxToRenderPerBatch={5}
+      windowSize={5}
+      removeClippedSubviews
+      // partial bubble は最新メッセージの「下」に表示したいので
+      // inverted の ListHeaderComponent (= 画面下端) に配置する
+      ListHeaderComponent={partial ? <PartialBubble text={partial} /> : null}
+      // empty state は inverted で表示が反転するため EmptyState 側で打ち消す
+      ListEmptyComponent={!partial ? <EmptyState /> : null}
+    />
   );
 }

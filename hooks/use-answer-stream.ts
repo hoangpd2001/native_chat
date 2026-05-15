@@ -80,7 +80,9 @@ function streamPost(
 
 /**
  * 質問配列を監視し、新しい質問ごとに全モデルへ並行ストリームリクエストを発火する hook。
- * StrictMode の二重マウントでも同じ質問を 2 回 fetch しないように processedRef で重複防止する。
+ * questions 配列の参照が変わるたびに useEffect が再実行されても、既に処理済みの
+ * 質問を再 fetch しないよう processedRef で重複防止する。
+ * KAN2-23 の eviction で MAX_QUESTIONS を超えた古い ID は processedRef から削除する。
  */
 export function useAnswerStream(
   questions: Question[],
@@ -179,6 +181,7 @@ export function useAnswerStream(
   );
 
   useEffect(() => {
+    // 新しい質問の処理
     for (const q of questions) {
       if (processedRef.current.has(q.id)) continue;
       processedRef.current.add(q.id);
@@ -193,6 +196,33 @@ export function useAnswerStream(
       for (const m of MODELS) {
         fireOne(q, m);
       }
+    }
+
+    // KAN2-23: questions が MAX_QUESTIONS で切り詰められた際の eviction 処理
+    // 1. 進行中の XHR を abort、2. answers state からエントリを削除、
+    // 3. processedRef からも削除 (Set の無限肥大化を防ぐ)
+    const currentIds = new Set(questions.map((q) => q.id));
+    const evictedIds: string[] = [];
+    for (const id of processedRef.current) {
+      if (!currentIds.has(id)) evictedIds.push(id);
+    }
+    if (evictedIds.length > 0) {
+      for (const id of evictedIds) {
+        for (const m of MODELS) {
+          const key = `${id}:${m}`;
+          const ctrl = controllersRef.current.get(key);
+          if (ctrl) {
+            ctrl.abort();
+            controllersRef.current.delete(key);
+          }
+        }
+        processedRef.current.delete(id);
+      }
+      setAnswers((prev) => {
+        const next = { ...prev };
+        for (const id of evictedIds) delete next[id];
+        return next;
+      });
     }
   }, [questions, fireOne]);
 

@@ -11,6 +11,9 @@ import type {
   TurnDetectionOptions,
 } from "@/lib/realtime/types";
 
+// スマホメモリ制約のため最新 MAX_QUESTIONS 件のみ保持し、古い質問は破棄する
+const MAX_QUESTIONS = 20;
+
 // Whisperが無音・ノイズ時に生成する典型的な幻覚テキストを除外する
 const HALLUCINATION_EXACT = new Set([
   "bye",
@@ -123,7 +126,9 @@ export function useRealtimeTranscription({
             setPartial("");
           }
           if (text.length > 0 && !isHallucination(text)) {
-            setQuestions((prev) => [...prev, { id: ev.itemId, text, createdAt: Date.now() }]);
+            setQuestions((prev) =>
+              [...prev, { id: ev.itemId, text, createdAt: Date.now() }].slice(-MAX_QUESTIONS)
+            );
           }
         }
         return;
@@ -214,7 +219,9 @@ export function useRealtimeTranscription({
       .join("");
     if (allText.length === 0 || isHallucination(allText)) return;
     const itemId = activeItemRef.current ?? `manual-${Date.now()}`;
-    setQuestions((prev) => [...prev, { id: itemId, text: allText, createdAt: Date.now() }]);
+    setQuestions((prev) =>
+      [...prev, { id: itemId, text: allText, createdAt: Date.now() }].slice(-MAX_QUESTIONS)
+    );
     partialByItemRef.current.clear();
     activeItemRef.current = null;
     setPartial("");

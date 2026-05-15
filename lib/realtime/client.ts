@@ -130,7 +130,10 @@ export class RealtimeClient {
     };
     if (pcAny.iceGatheringState !== "complete") {
       await new Promise<void>((resolve) => {
-        const timer = setTimeout(resolve, 500);
+        const timer = setTimeout(() => {
+          pcAny.onicegatheringstatechange = null;
+          resolve();
+        }, 500);
         pcAny.onicegatheringstatechange = () => {
           if (pcAny.iceGatheringState === "complete") {
             clearTimeout(timer);
@@ -162,11 +165,19 @@ export class RealtimeClient {
         message: `SDP exchange failed: ${answerRes.status} ${detail.slice(0, 200)}`,
       });
       this.setState("error");
+      this.cleanup();
       throw new Error(`SDP exchange failed: ${answerRes.status}`);
     }
 
     const answerSdp = await answerRes.text();
-    await pc.setRemoteDescription({ type: "answer", sdp: answerSdp });
+    try {
+      await pc.setRemoteDescription({ type: "answer", sdp: answerSdp });
+    } catch (e) {
+      this.opts.onEvent({ type: "error", message: "setRemoteDescription failed" });
+      this.setState("error");
+      this.cleanup();
+      throw e;
+    }
   }
 
   /** VAD パラメータを実行時に変更する (gpt-realtime-whisper では session.update に反映されない) */
@@ -198,6 +209,15 @@ export class RealtimeClient {
   /** DataChannel / PeerConnection / VAD タイマーを全て解放する */
   private cleanup(): void {
     if (this.dc) {
+      // close() より先にハンドラを null 化して、close 中に発火する遅延コールバックを抑止する
+      // @ts-expect-error react-native-webrtc の RTCDataChannel 型に onopen 等のプロパティ未公開
+      this.dc.onopen = null;
+      // @ts-expect-error 同上
+      this.dc.onclose = null;
+      // @ts-expect-error 同上
+      this.dc.onerror = null;
+      // @ts-expect-error 同上
+      this.dc.onmessage = null;
       try {
         this.dc.close();
       } catch {
@@ -206,6 +226,12 @@ export class RealtimeClient {
       this.dc = null;
     }
     if (this.pc) {
+      const pcAny = this.pc as unknown as {
+        onconnectionstatechange: (() => void) | null;
+        onicegatheringstatechange: (() => void) | null;
+      };
+      pcAny.onconnectionstatechange = null;
+      pcAny.onicegatheringstatechange = null;
       for (const sender of this.senders) {
         try {
           this.pc.removeTrack(sender);
@@ -231,11 +257,7 @@ export class RealtimeClient {
    */
   private startVad(): void {
     if (!this.pipeline) {
-      this.opts.onEvent({
-        type: "error",
-        message:
-          "AudioPipeline が渡されていないため VAD が無効です。音声の文字起こしが行われません。",
-      });
+      console.warn("[RealtimeClient] no AudioPipeline, VAD disabled — 文字起こしは行われません");
       return;
     }
 
